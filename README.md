@@ -1,4 +1,4 @@
-# POC of aggregating tenants to generate reports asynchronously with RX Java
+## Asynchronously generating a report from multiples sources using rx java. 
 
 Asynchronously generating a report from multiples sources using rx java. 
 
@@ -11,8 +11,22 @@ The test runners shows 3 different situations:
  * A single failure from one source terminates the job entirely: `RunnerStopsAfterFirstError.java`
  * A single failure from one source terminates that source but allows other sources to continue to contribute to the report: `RunnerOnlyStopsProcessingSingleSourceAfterError.java`
    
+###Test data sources
 
+Test data sources simulate generating records that should be included in the report. 
+They have attributes that can be configured:
+ * The name that is incorporated in each cell values
+ * The number of rows that the datasource contains
+ * The max/min duration of how long it should take to generate a row (the calling thread will wait a random amount of time in this range before returning a row).  
 
+```java
+private final TestDataSource source3 = TestDataSource.withName("C")
+                                                     .numberOfRows(1_000)
+                                                     .generatingRowTakesBetweenMillis(2, 12)
+                                                     .create();
+```
+
+### Example out put
 Example output of all rows being processed:
 
 ```java

@@ -21,57 +21,57 @@ import rx.Observable;
  */
 public class RunnerStopsAfterFirstError {
 
-	private static final Logger L = LoggerFactory.getLogger(RunnerStopsAfterFirstError.class);
-	
-	private final TestDataSource source1 = TestDataSource.withName("A")
-													.numberOfRows(1_500)
-													.generatingRowTakesBetweenMillis(8, 10)
-													.create();
-	
-	private final TestDataSource source2 = TestDataSource.withName("B")
-													.numberOfRows(1_500)
-													.generatingRowTakesBetweenMillis(8, 10)
-													.create();
+    private static final Logger L = LoggerFactory.getLogger(RunnerStopsAfterFirstError.class);
+    
+    private final TestDataSource source1 = TestDataSource.withName("A")
+                                                    .numberOfRows(1_500)
+                                                    .generatingRowTakesBetweenMillis(8, 10)
+                                                    .create();
+    
+    private final TestDataSource source2 = TestDataSource.withName("B")
+                                                    .numberOfRows(1_500)
+                                                    .generatingRowTakesBetweenMillis(8, 10)
+                                                    .create();
 
-	private final TestDataSource source3 = TestDataSource.withName("C")
-													.numberOfRows(1_000)
-													.generatingRowTakesBetweenMillis(2, 12)
-													.create();
-	
-	public void generate() throws Exception {
-	
-		Observable<String[]> source1Observable = source1.asObservable();
-		Observable<String[]> source2Observable = source2.asObservable();
-		Observable<String[]> source3Observable = source3.asObservable();
-		
-		TestDataSource.setFailOnRow(1_500);
-		
-		File report = createTempFile("report-", ".csv");
+    private final TestDataSource source3 = TestDataSource.withName("C")
+                                                    .numberOfRows(1_000)
+                                                    .generatingRowTakesBetweenMillis(2, 12)
+                                                    .create();
+    
+    public void generate() throws Exception {
+    
+        Observable<String[]> source1Observable = source1.asObservable();
+        Observable<String[]> source2Observable = source2.asObservable();
+        Observable<String[]> source3Observable = source3.asObservable();
+        
+        TestDataSource.setFailOnRow(1_500);
+        
+        File report = createTempFile("report-", ".csv");
 
-		L.info("Generating report: {}", report.getAbsolutePath());
-		
-		Observable
-			.merge(source1Observable, source2Observable, source3Observable)
-			
-			// transform from array to comma separate string lines
-			.map(line -> stream(line).collect(joining(",","","\n")))
-			
-			// write each line to file
-			.doOnNext(line -> propagateAnyError(() -> append(line, report, UTF_8)))
-			
-			// convert to rows written / second
-			.window(1, SECONDS).flatMap(Observable::count)
-	        
-			// block to ensure main doesn't exit
-			.toBlocking()
-			
-			.subscribe(
-					count -> L.info("Processed {} events/s", count),
-					error -> L.error("An error has occurred: {}", error.getMessage(), error),
-					() -> L.info("The report has now completed: {}", LocalDateTime.now()));
-	}
+        L.info("Generating report: {}", report.getAbsolutePath());
+        
+        Observable
+            .merge(source1Observable, source2Observable, source3Observable)
+            
+            // transform from array to comma separate string lines
+            .map(line -> stream(line).collect(joining(",","","\n")))
+            
+            // write each line to file
+            .doOnNext(line -> propagateAnyError(() -> append(line, report, UTF_8)))
+            
+            // convert to rows written / second
+            .window(1, SECONDS).flatMap(Observable::count)
+            
+            // block to ensure main doesn't exit
+            .toBlocking()
+            
+            .subscribe(
+                    count -> L.info("Processed {} events/s", count),
+                    error -> L.error("An error has occurred: {}", error.getMessage(), error),
+                    () -> L.info("The report has now completed: {}", LocalDateTime.now()));
+    }
 
-	public static void main(String[] args) throws Exception {
-		new RunnerStopsAfterFirstError().generate();
-	}
+    public static void main(String[] args) throws Exception {
+        new RunnerStopsAfterFirstError().generate();
+    }
 }
