@@ -1,4 +1,4 @@
-package uk.co.optimisticpanda.reportgen;
+package uk.co.optimisticpanda.reportgen.lesssimple;
 
 import static java.util.Arrays.stream;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -9,15 +9,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import rx.Emitter;
-import rx.Emitter.BackpressureMode;
 import rx.Observable;
-import rx.functions.Action1;
-import rx.schedulers.Schedulers;
 
-public class TestDataSource {
+public class DataSource {
     private static final Logger L = LoggerFactory
-            .getLogger(TestDataSource.class);
+            .getLogger(DataSource.class);
     private static final AtomicInteger TOTAL_ROW_COUNT = new AtomicInteger(0);
     private static int FAILS_ON = -1;
 
@@ -37,14 +33,14 @@ public class TestDataSource {
         return new Builder(name);
     }
 
-    private TestDataSource(String name, int totalRows, int min, int max) {
+    private DataSource(String name, int totalRows, int min, int max) {
         this.name = name;
         this.totalRows = totalRows;
         this.min = min;
         this.max = max;
     }
 
-    private String[] getLine() {
+    Observable<String[]> getLine() {
         try {
             MILLISECONDS.sleep(ThreadLocalRandom.current()
                     .nextInt(min, max + 1));
@@ -59,31 +55,19 @@ public class TestDataSource {
             throw new RuntimeException("An Error occured! in source: " + name
                     + ", after: " + rowNumber + " rows");
         }
-        return stream(FIELDS).map(
+        return Observable.just(stream(FIELDS).map(
                 field -> String.format("%s-%s-%s", field, name, rowNumber))
-                .toArray(String[]::new);
+                .toArray(String[]::new));
     }
 
-    Observable<String[]> asObservable() {
-        return Observable.fromCallable(this::getLine)
-                .observeOn(Schedulers.io()).repeat()
-                .takeUntil(row -> rowCount.get() == totalRows);
-    }
-
-    Observable<String[]> asSingleThreadedObservable() {
-        return Observable.create(new Action1<Emitter<String[]>>() {
-            @Override
-            public void call(Emitter<String[]> emitter) {
-                try {
-                    while (rowCount.get() != totalRows) {
-                        emitter.onNext(getLine());
-                    }
-                    emitter.onCompleted();
-                } catch (Exception e) {
-                    emitter.onError(e);
-                }
-            }
-        }, BackpressureMode.BUFFER);
+    Observable<String> asIds() {
+        AtomicInteger i = new  AtomicInteger();
+        return Observable.fromCallable(() -> {
+            Thread.sleep(5);
+            return "id-" + i.incrementAndGet(); 
+        })
+        .repeat()
+        .takeUntil(row -> rowCount.get() > totalRows);
     }
 
     static class Builder {
@@ -108,8 +92,8 @@ public class TestDataSource {
             return this;
         }
 
-        TestDataSource create() {
-            return new TestDataSource(name, rows, min, max);
+        DataSource create() {
+            return new DataSource(name, rows, min, max);
         }
     }
 }
